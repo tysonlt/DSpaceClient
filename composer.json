@@ -1,0 +1,15 @@
+{
+    "name": "divinity/dspace",
+    "type": "library",
+    "require": {
+        "illuminate/support": "^8.50",
+        "guzzlehttp/guzzle": "^7.3"
+    },
+    "authors": [
+        {
+            "name": "Tyson Lloyd Thwaites",
+            "email": "tlloydthwaites@divinity.edu.au"
+        }
+    ],
+    "minimum-stability": "stable"
+}
