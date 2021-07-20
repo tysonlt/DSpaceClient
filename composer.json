@@ -1,5 +1,5 @@
 {
-    "name": "divinity/dspace",
+    "name": "tysonlt/dspaceclient",
     "type": "library",
     "require": {
         "illuminate/support": "^8.50",
