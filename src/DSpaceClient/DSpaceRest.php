@@ -2,7 +2,6 @@
 
 namespace DSpaceClient;
 
-use CURLFile;
 use Exception;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
@@ -87,7 +86,7 @@ class DSpaceRest {
     /**
      * 
      */
-    public function delete(string|DSpaceItem $uuid) : array {
+    public function delete($uuid) : array {
         if ($uuid instanceof DSpaceItem) {
             $uuid = $uuid->id;
         }
@@ -113,7 +112,7 @@ class DSpaceRest {
     /**
      * 
      */
-    public function update(string|DSpaceItem $item, array $metadata) {
+    public function update($item, array $metadata) {
         $uuid = $item instanceof DSpaceItem ? $item->id : $item;
         $payload = [];
         foreach ($metadata as $key => $values) {
@@ -131,7 +130,7 @@ class DSpaceRest {
     /**
      * 
      */
-    public function getRelationshipId(string $dc_key, string $left_entity_type, string $right_entity_type) : int|null {
+    public function getRelationshipId(string $dc_key, string $left_entity_type, string $right_entity_type) {
         throw new Exception("NOT IMPL");
         return null;
     }
@@ -228,7 +227,7 @@ class DSpaceRest {
     /**
      * 
      */
-    public function request(string $uri, string $method='GET', array $data=[], CURLFile|null $file=null, array $uri_list=[]) : array {
+    public function request(string $uri, string $method='GET', array $data=[], $file=null, array $uri_list=[]) : array {
 
         $response = null;
 
@@ -254,7 +253,7 @@ class DSpaceRest {
 
     }
 
-    public function _request(string $uri, string $method='GET', array $data=[], CURLFile|null $file=null, array $uri_list=[]) : array|null {
+    public function _request(string $uri, string $method='GET', array $data=[], $file=null, array $uri_list=[]) : array {
 
         if (false === strpos($uri, '://')) {
             $endpoint = rtrim($this->api_root, '/') .'/'. ltrim($uri, '/');

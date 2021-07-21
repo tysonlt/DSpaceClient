@@ -63,7 +63,7 @@ class DSpaceItem {
         return $this->entities;
     }
 
-    public function getMeta($key, bool $first = true) : string|array|null {
+    public function getMeta($key, bool $first = true) {
 
         $result = [];
 
@@ -84,7 +84,7 @@ class DSpaceItem {
 
     }
 
-    public function addMeta(string $key, string|array|null $value, string $language="en", $authority=null, $confidence=-1) : DSpaceItem {
+    public function addMeta(string $key, $value, string $language="en", $authority=null, $confidence=-1) : DSpaceItem {
         
         if (empty($value)) {
             return $this;

@@ -6,7 +6,7 @@
     'aliases' => 
     array (
     ),
-    'reference' => '8c802fb514691639e8f78ca90cae7760874fbf75',
+    'reference' => '86d801c9d2fff8c373d5f597598090ea116513b9',
     'name' => 'tysonlt/dspaceclient',
   ),
   'versions' => 
@@ -527,7 +527,7 @@
       'aliases' => 
       array (
       ),
-      'reference' => '8c802fb514691639e8f78ca90cae7760874fbf75',
+      'reference' => '86d801c9d2fff8c373d5f597598090ea116513b9',
     ),
     'voku/portable-ascii' => 
     array (

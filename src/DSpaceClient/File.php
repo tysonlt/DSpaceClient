@@ -15,7 +15,7 @@ class File {
     public $content;
     public $temp_path;
 
-    public function getCURLFile($download = true) : CURLFile|null {
+    public function getCURLFile($download = true) {
         $cfile = null;
         
         if ($download && !$this->isDownloaded()) {
