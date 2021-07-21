@@ -7,6 +7,9 @@ use Exception;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 
+/**
+ * 
+ */
 class DSpaceRest {
 
     protected const XSRF_HEADER = 'DSPACE-XSRF-TOKEN';
@@ -15,18 +18,24 @@ class DSpaceRest {
     public $verbose = false;
 
     protected $api_root;
-    protected $bearer_token;
-    protected $csrf_token;
     protected $username;
     protected $password;
+    protected $bearer_token;
+    protected $csrf_token;
 
-    public function __construct($api_root, $username, $password) {
+    /**
+     * 
+     */
+    public function __construct(string $api_root, string $username, string $password) {
         $this->api_root = rtrim($api_root. '/');
         $this->username = $username;
         $this->password = $password;
     }
 
-    public function getAllItems($key_by = 'id', $page_size = 100) : array {
+    /**
+     * 
+     */
+    public function getAllItems(string $key_by = 'id', int $page_size = 100) : array {
         $result = [];
         $page = 0;
         $has_more = true;
@@ -46,7 +55,10 @@ class DSpaceRest {
         return $result;
     }
 
-    public function getItemsByPage($page, array &$result, $key_by = 'id', $size=100) : int {
+    /**
+     * 
+     */
+    public function getItemsByPage(int $page, array &$result, string $key_by = 'id', int $size = 100) : int {
         $count = 0;
         $response = $this->request("/api/core/item?page=$page&size=$size");
         foreach (Arr::get($response, '_embedded.items', []) as $item) {
@@ -60,7 +72,10 @@ class DSpaceRest {
         return $count;
     }
 
-    public function getCollections() {
+    /**
+     * 
+     */
+    public function getCollections() : array {
         $result = [];
         $response = $this->request("/api/core/collections");
         foreach (Arr::get($response, '_embedded.collections', []) as $item) {
@@ -69,14 +84,20 @@ class DSpaceRest {
         return $result;
     }
 
-    public function delete(string|DSpaceItem $uuid) {
+    /**
+     * 
+     */
+    public function delete(string|DSpaceItem $uuid) : array {
         if ($uuid instanceof DSpaceItem) {
             $uuid = $uuid->id;
         }
         return $this->request("/api/core/items/$uuid", 'DELETE');
     }
 
-    public function submit(DSpaceItem $item, $upload_files = true) {
+    /**
+     * 
+     */
+    public function submit(DSpaceItem $item, bool $upload_files = true) {
         
         $uri = '/api/core/items?owningCollection='. $item->getOwningCollection();
         $response = $this->request($uri, 'POST', $item->asArray());
@@ -89,6 +110,9 @@ class DSpaceRest {
 
     }
 
+    /**
+     * 
+     */
     public function update(string|DSpaceItem $item, array $metadata) {
         $uuid = $item instanceof DSpaceItem ? $item->id : $item;
         $payload = [];
@@ -104,10 +128,17 @@ class DSpaceRest {
         return $this->request('/api/core/items/'. $uuid, 'PATCH', $payload);
     }
 
-    public function getRelationshipId($dc_key, $left_entity_type, $right_entity_type) {
-
+    /**
+     * 
+     */
+    public function getRelationshipId(string $dc_key, string $left_entity_type, string $right_entity_type) : int|null {
+        throw new Exception("NOT IMPL");
+        return null;
     }
 
+    /**
+     * 
+     */
     public function createRelationship(int $relationship_id, string $left_uuid, string $right_uuid) {
         $prefix = Str::finish($this->api_root, '/') . 'api/core/items/';
         $uri_list = [
@@ -118,19 +149,28 @@ class DSpaceRest {
         return $this->request($uri, 'POST', [], null, $uri_list);
     }
 
-    public function uploadItemFiles(DSpaceItem $item) {
+    /**
+     * 
+     */
+    public function uploadItemFiles(DSpaceItem $item) : array {
+        $result = [];
         if ($item->hasFiles()) {
             if ($this->findOrCreateBundle($item)) {
                 foreach ($item->getFiles() as $file) {
-                    $this->say("\t\t - uploading ". $file['filename'] ."... ");
+                    $this->say("\t\t - uploading ". $file->filename ."... ");
                     $status = false === $this->uploadFile($item, $file) ? "FAILED!" : "OK";
+                    $result[$file->filename] = $status;
                     $this->say("$status\n");
                 }
             }
         } 
+        return $result;
     }
 
-    protected function findOrCreateBundle(DSpaceItem $item, $bundle_name="ORIGINAL") {
+    /**
+     * 
+     */
+    protected function findOrCreateBundle(DSpaceItem $item, string $bundle_name="ORIGINAL") : bool {
         
         if ($this->ensureRemoteId($item)) {
 
@@ -156,7 +196,10 @@ class DSpaceRest {
 
     }
 
-    protected function uploadFile(DSpaceItem $item, File $file) {
+    /**
+     * 
+     */
+    protected function uploadFile(DSpaceItem $item, File $file) : array {
         $response = false;
         if ($cfile = $file->getCURLFile(true)) {
             $response = $this->request($item->bitstreams_uri, 'POST', [], $cfile);
@@ -165,18 +208,27 @@ class DSpaceRest {
         return $response;
     }
 
+    /**
+     * 
+     */
     protected function ensureRemoteId(DSpaceItem $item) {
         if (empty($item->id)) {
             throw new Exception("DSpaceItem has no ID set: has it been uploaded yet?");
         }
     }
 
+    /**
+     * 
+     */
     protected function login() {
         $auth_request = sprintf('/api/authn/login?user=%s&password=%s', rawurlencode($this->username), rawurlencode($this->password));
-        return $this->_request($auth_request, 'POST', [], false);
+        return $this->_request($auth_request, 'POST');
     }
 
-    public function request($uri, $method='GET', $data=[], $file=null, array $uri_list=[]) {
+    /**
+     * 
+     */
+    public function request(string $uri, string $method='GET', array $data=[], CURLFile|null $file=null, array $uri_list=[]) : array {
 
         $response = null;
 
@@ -202,7 +254,7 @@ class DSpaceRest {
 
     }
 
-    protected function _request($uri, $method='GET', $data=[], $file=null, array $uri_list=[]) {
+    public function _request(string $uri, string $method='GET', array $data=[], CURLFile|null $file=null, array $uri_list=[]) : array {
 
         if (false === strpos($uri, '://')) {
             $endpoint = rtrim($this->api_root, '/') .'/'. ltrim($uri, '/');
@@ -215,6 +267,7 @@ class DSpaceRest {
         if (!empty($this->bearer_token)) {
             $headers[] = sprintf('%s %s', self::AUTH_HEADER, $this->bearer_token);
         }
+        
         if (!empty($this->csrf_token)) {
             $headers[] = "X-XSRF-TOKEN: ". $this->csrf_token;
             curl_setopt($ch, CURLOPT_COOKIE, "DSPACE-XSRF-COOKIE=". $this->csrf_token);
@@ -231,6 +284,7 @@ class DSpaceRest {
         } else if (!empty($uri_list)) {
             $headers[] = "Content-Type: text/uri-list";
             curl_setopt($ch, CURLOPT_POSTFIELDS, join("\n", $uri_list));
+
         } else if (!empty($data)) {
             $headers[] = "Content-Type: application/json";
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
@@ -256,6 +310,9 @@ class DSpaceRest {
 
     }
 
+    /**
+     * 
+     */
     protected function process_curl_header($ch, $header) {
 
         if (false !== strpos($header, self::XSRF_HEADER)) {
@@ -268,12 +325,18 @@ class DSpaceRest {
         return strlen($header);
     }
 
+    /**
+     * 
+     */
     protected function say($text) {
         if ($this->verbose) echo $text;
     }
 
 }
 
+/**
+ * 
+ */
 class DSpaceHttpStatusException extends Exception {
     public $response;
     public function __construct($status, $response) {
