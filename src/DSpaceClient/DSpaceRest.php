@@ -71,6 +71,35 @@ class DSpaceRest {
         return $count;
     }
 
+    public function search(DSpaceSearch $search, $key_by = 'id', $page = false) : array {
+
+        $result = [];
+
+        $use_page = false !== $page;
+        $page = 0;
+        $has_more = true;
+
+        while ($has_more) {
+            $endpoint = $search->buildEndpoint($page++);
+            $response = $this->request($endpoint);
+            $hits = Arr::get($response, '_embedded.searchResult._embedded.objects', []);
+            if (empty($hits)) {
+                $has_more = false;
+            } else {
+                foreach ($hits as $hit) {
+                    $item = Arr::get($hit, '_embedded.indexableObject');
+                    $result[$item['id']] = $item;
+                }
+            }
+            if (!$use_page) {
+                $has_more = false;
+            }
+        }
+
+        return $result;
+
+    }
+
     /**
      * 
      */
@@ -227,7 +256,7 @@ class DSpaceRest {
     /**
      * 
      */
-    public function request(string $uri, string $method='GET', array $data=[], $file=null, array $uri_list=[]) : array {
+    public function request(string $uri, string $method='GET', array $data=[], $file=null, array $uri_list=[]) {
 
         $response = null;
 
@@ -253,7 +282,7 @@ class DSpaceRest {
 
     }
 
-    public function _request(string $uri, string $method='GET', array $data=[], $file=null, array $uri_list=[]) : array {
+    public function _request(string $uri, string $method='GET', array $data=[], $file=null, array $uri_list=[]) {
 
         if (false === strpos($uri, '://')) {
             $endpoint = rtrim($this->api_root, '/') .'/'. ltrim($uri, '/');
