@@ -25,19 +25,19 @@ class DSpaceItem {
         $this->collection_id = $collection_id;
     }
 
-    public function getId() : string {
+    public function getId() {
         return $this->id;
     }
 
-    public function getUuid() : string {
+    public function getUuid() {
         return $this->getId();
     }
 
-    public function setId($id) {
+    public function setId(string $id) {
         $this->id = $id;
     }
 
-    public function setUuid($id) {
+    public function setUuid(string $id) {
         $this->setId($id);
     }
 
