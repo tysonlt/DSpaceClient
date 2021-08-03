@@ -2,7 +2,7 @@
     "name": "tysonlt/dspaceclient",
     "type": "library",
     "require": {
-        "illuminate/support": "^8.50",
+        "illuminate/support": "^8.51",
         "guzzlehttp/guzzle": "^7.3"
     },
     "authors": [
