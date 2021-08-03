@@ -8,6 +8,7 @@ namespace DSpaceClient;
 class DSpaceSearch {
 
     public $scope = null;
+    public $pluck_fields = [];
     public $filters = [];
 
     public function addFilter($key, $value, $operator='equals') {
@@ -16,6 +17,22 @@ class DSpaceSearch {
             'value' => $value,
             'operator' => $operator
         ];
+        return $this;
+    }
+
+    public function setScope($scope) {
+        $this->scope = $scope;
+        return $this;
+    }
+
+    public function pluck($field) {
+        $this->pluck_fields[] = $field;
+        return $this;
+    }
+
+    public function pluckMeta($field) {
+        $this->pluck_fields[] = 'meta:'. $field;
+        return $this;
     }
 
     public function buildEndpoint($page = false) {
