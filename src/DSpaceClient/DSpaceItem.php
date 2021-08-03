@@ -2,29 +2,71 @@
 
 namespace DSpaceClient;
 
+use Exception;
+
 class DSpaceItem {
 
+    public $id = null;
+    public $handle = null;
     public $collection_id = null;
+    public $relationship_type_id = null;
     public $name = null;
+
+    public $bitstreams_uri = null;
+    public $primary_bitstream_uri = null;
 
     protected $meta = [];
     protected $files = [];
     protected $entities = [];
 
-    public function __construct(string $name = null) {
+    public function __construct(string $name = null, $id = null, $collection_id = null) {
         $this->name = $name;
+        $this->id = $id;
+        $this->collection_id = $collection_id;
     }
 
-    public function name() {
-        return $this->name;
+    public function getId() {
+        return $this->id;
+    }
+
+    public function getUuid() {
+        return $this->getId();
+    }
+
+    public function setId(string $id) {
+        $this->id = $id;
+    }
+
+    public function setUuid(string $id) {
+        $this->setId($id);
     }
 
     public function meta(): array {
         return $this->meta;
     }
 
+    public function getName() {
+        return $this->name;
+    }
+
+    public function setName($name) {
+        $this->name = $name;
+    }
+
     public function getEntityType(): string {
         return $this->getMeta('dspace.entity.type', true);
+    }
+
+    public function setOwningCollection($collection_id) {
+        $this->collection_id = $collection_id;
+    }
+
+    public function getRelationshipTypeId() : int {
+        return $this->relationship_type_id;
+    }
+
+    public function setRelationshipTypeId($relationship_type_id) {
+        $this->relationship_type_id = $relationship_type_id;
     }
 
     public function getOwningCollection() : string {
@@ -44,6 +86,9 @@ class DSpaceItem {
     }
 
     public function addEntity(DSpaceItem $entity) {
+        if (empty($entity->getRelationshipTypeId())) {
+            throw new Exception("Linked entities must have a relationship type ID.");
+        }
         $this->entities[] = $entity;
     }
 
@@ -63,7 +108,11 @@ class DSpaceItem {
         return $this->entities;
     }
 
-    public function getMeta($key, bool $first = true) {
+    public function getMeta($key = null, bool $first = true) {
+
+        if (empty($key)) {
+            return $this->meta;
+        }
 
         $result = [];
 
@@ -71,7 +120,7 @@ class DSpaceItem {
             return null;
         }
 
-        foreach ($this->output['metadata'] as $meta) {
+        foreach ($this->meta as $meta) {
             $value = $meta['value'];
             if ($first) {
                 return $value;
@@ -119,7 +168,7 @@ class DSpaceItem {
     }
 
     protected function buildOutput($name, $meta) {
-        return [
+        $output = [
             "inArchive" => true,
             "discoverable" => true,
             "withdrawn" => false,
@@ -127,6 +176,17 @@ class DSpaceItem {
             "name" => $name,
             "metadata" => $meta,
         ];
+
+        if ($this->id) {
+            $output["id"] = $this->id;
+            $output["uuid"] = $this->id;
+        }
+
+        if ($this->handle) {
+            $output["handle"] = $this->handle;
+        }
+
+        return $output;
     }
 
 }

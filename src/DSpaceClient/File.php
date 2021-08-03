@@ -54,6 +54,10 @@ class File {
 
     public function getRemoteContents() {
         
+        if (!$this->uri) {
+            return null;
+        }
+
         $client = new \GuzzleHttp\Client();
         
         $data = [];
