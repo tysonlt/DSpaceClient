@@ -71,7 +71,7 @@ class DSpaceRest {
         return $count;
     }
 
-    public function search(DSpaceSearch $search, $key_by = 'id', $page = false) : array {
+    public function search(DSpaceSearch $search, $key_by = 'id', $page = 0) : array {
 
         $result = [];
 
@@ -88,7 +88,30 @@ class DSpaceRest {
             } else {
                 foreach ($hits as $hit) {
                     $item = Arr::get($hit, '_embedded.indexableObject');
-                    $result[$item['id']] = $item;
+                    if (empty($search->pluck_fields)) {
+                        $result[$item[$key_by]] = $item;
+                    } else {
+                        $data = [];
+                        foreach ($search->pluck_fields as $field) {
+                            $value = '';
+                            if (Str::startsWith($field, 'meta:')) {
+                                $field = Str::after($field, 'meta:');
+                                if (array_key_exists($field, $item['metadata'])) {
+                                    $meta = $item['metadata'][$field];
+                                    if (count($meta) > 0) {
+                                        $value = $item['metadata'][$field][0]['value'];
+                                    }
+                                }
+                            } else {
+                                $value = data_get($item, $field);
+                            }
+                            $data[$field] = $value;
+                        }
+                        if (count($data) == 1) {
+                            $data = reset($data);
+                        }
+                        $result[$item[$key_by]] = $data;
+                    }
                 }
             }
             if (!$use_page) {
