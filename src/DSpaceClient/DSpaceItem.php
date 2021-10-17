@@ -33,12 +33,14 @@ class DSpaceItem {
         return $this->getId();
     }
 
-    public function setId(string $id) {
+    public function setId(string $id) : DSpaceItem {
         $this->id = $id;
+        return $this;
     }
 
-    public function setUuid(string $id) {
+    public function setUuid(string $id) : DSpaceItem {
         $this->setId($id);
+        return $this;
     }
 
     public function meta(): array {
@@ -49,24 +51,27 @@ class DSpaceItem {
         return $this->name;
     }
 
-    public function setName($name) {
+    public function setName($name) : DSpaceItem {
         $this->name = $name;
+        return $this;
     }
 
     public function getEntityType(): string {
         return $this->getMeta('dspace.entity.type', true);
     }
 
-    public function setOwningCollection($collection_id) {
+    public function setOwningCollection($collection_id) : DSpaceItem {
         $this->collection_id = $collection_id;
+        return $this;
     }
 
     public function getRelationshipTypeId() : int {
         return $this->relationship_type_id;
     }
 
-    public function setRelationshipTypeId($relationship_type_id) {
+    public function setRelationshipTypeId($relationship_type_id) : DSpaceItem {
         $this->relationship_type_id = $relationship_type_id;
+        return $this;
     }
 
     public function getOwningCollection() : string {
@@ -81,15 +86,17 @@ class DSpaceItem {
         return $this->buildOutput($this->name, $this->meta);
     }
 
-    public function addFile(File $file) {
+    public function addFile(File $file) : DSpaceItem {
         $this->files[] = $file;
+        return $this;
     }
 
-    public function addEntity(DSpaceItem $entity) {
+    public function addEntity(DSpaceItem $entity) : DSpaceItem {
         if (empty($entity->getRelationshipTypeId())) {
             throw new Exception("Linked entities must have a relationship type ID.");
         }
         $this->entities[] = $entity;
+        return $this;
     }
 
     public function hasFiles() : bool {
