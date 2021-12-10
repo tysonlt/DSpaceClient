@@ -11,6 +11,7 @@ class DSpaceItem {
     public $collection_id = null;
     public $relationship_type_id = null;
     public $name = null;
+    public $props = [];
 
     public $bitstreams_uri = null;
     public $primary_bitstream_uri = null;
@@ -51,12 +52,27 @@ class DSpaceItem {
         return $this->name;
     }
 
-    public function setName($name) : DSpaceItem {
+    public function setName(string $name) : DSpaceItem {
         $this->name = $name;
         return $this;
     }
 
-    public function getEntityType(): string {
+    public function setItemProps(array $props) : DSpaceItem {
+        $this->props = $props;
+        return $this;
+    }
+
+    public function setDefaultProps(?string $type = 'item') : DSpaceItem {
+        $this->setItemProps([
+            "inArchive" => true,
+            "discoverable" => true,
+            "withdrawn" => false,
+            "type" => $type
+        ]);
+        return $this;
+    }
+
+    public function getEntityType(): ?string {
         return $this->getMeta('dspace.entity.type', true);
     }
 
@@ -65,7 +81,7 @@ class DSpaceItem {
         return $this;
     }
 
-    public function getRelationshipTypeId() : int {
+    public function getRelationshipTypeId() : ?int {
         return $this->relationship_type_id;
     }
 
@@ -74,7 +90,7 @@ class DSpaceItem {
         return $this;
     }
 
-    public function getOwningCollection() : string {
+    public function getOwningCollection() : ?string {
         return $this->collection_id;
     }
 
@@ -176,13 +192,13 @@ class DSpaceItem {
 
     protected function buildOutput($name, $meta) {
         $output = [
-            "inArchive" => true,
-            "discoverable" => true,
-            "withdrawn" => false,
-            "type" => "item",
             "name" => $name,
             "metadata" => $meta,
         ];
+
+        if (!empty($this->props)) {
+            $output = array_merge($output, $this->props);
+        }
 
         if ($this->id) {
             $output["id"] = $this->id;

@@ -239,6 +239,21 @@ class DSpaceRest {
         return $this->request("/api/core/items/$uuid", 'DELETE');
     }
 
+    public function submitTo(DSpaceItem $item, string $endpoint) {
+
+        $response = $this->request($endpoint, 'POST', $item->asArray());
+
+        if (empty($response['id'])) {
+            throw new DSpaceRequestFailureException("Item upload failed.", $response);
+        }
+
+        $item->id = $response['id'];
+        $item->handle = $response['handle'];
+
+        return $response;
+
+    }
+
     /**
      * 
      */
