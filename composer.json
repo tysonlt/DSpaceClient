@@ -11,13 +11,10 @@
             "email": "tlloydthwaites@divinity.edu.au"
         }
     ],
-    "minimum-stability": "stable",
+    "minimum-stability": "dev",
     "autoload": {
         "psr-4": {
             "DSpaceClient\\": "src/DSpaceClient"
         }
-    },
-    "require-dev": {
-        "phpunit/phpunit": "^9"
     }
 }
