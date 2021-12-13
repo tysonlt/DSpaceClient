@@ -496,8 +496,11 @@ class DSpaceRest {
      * 
      */
     protected function login() {
-        $auth_request = sprintf('/api/authn/login?user=%s&password=%s', rawurlencode($this->username), rawurlencode($this->password));
-        return $this->_request($auth_request, 'POST');
+        $auth_request = '/api/authn/login';
+        return $this->_request($auth_request, 'POST', [
+            'user' => $this->username,
+            'password' => $this->password
+        ]);
     }
 
     /**
@@ -514,9 +517,12 @@ class DSpaceRest {
         } catch (DSpaceHttpStatusException $e) {
 
             try {
+                
                 $this->login();
                 $response = $this->_request($uri, $method, $data, $file, $uri_list);
+
             } catch (DSpaceHttpStatusException $e) {
+                error_log(sprintf("DSpaceHttpStatusException: %s, code=%s", $e->getMessage(), $e->getCode()));
                 if ($data = json_decode($e->response)) {
                     throw new Exception("DSpace said: ". $data->message .': '. $data->error);
                 }
@@ -563,6 +569,7 @@ class DSpaceRest {
         } else if (!empty($data)) {
             $headers[] = "Content-Type: application/json";
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+        
         }
         
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
