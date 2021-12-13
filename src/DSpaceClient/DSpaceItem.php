@@ -139,11 +139,11 @@ class DSpaceItem {
 
         $result = [];
 
-        if (!array_key_exists($key, $this->output['metadata'])) {
+        if (!array_key_exists($key, $this->meta)) {
             return null;
         }
 
-        foreach ($this->meta as $meta) {
+        foreach ($this->meta[$key] as $meta) {
             $value = $meta['value'];
             if ($first) {
                 return $value;
