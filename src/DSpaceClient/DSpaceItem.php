@@ -76,6 +76,10 @@ class DSpaceItem {
         return $this->getMeta('dspace.entity.type', true);
     }
 
+    public function setEntityType(string $entityType) {
+        $this->addMeta('dspace.entity.type', $entityType);
+    }
+
     public function setOwningCollection($collection_id) : DSpaceItem {
         $this->collection_id = $collection_id;
         return $this;
@@ -107,9 +111,28 @@ class DSpaceItem {
         return $this;
     }
 
+    public function hasEntity(string $entityType, string $uuid, ?int $relationshipTypeId = null) : bool {
+        /** @var DSpaceItem $entity */
+        foreach ($this->getEntities() as $entity) {
+            if ($entity->getEntityType() == $entityType && $entity->getUuid() == $uuid) {
+                if ($relationshipTypeId) {
+                    if ($entity->getRelationshipTypeId() == $relationshipTypeId) {
+                        return true;
+                    }
+                } else {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     public function addEntity(DSpaceItem $entity) : DSpaceItem {
         if (empty($entity->getRelationshipTypeId())) {
             throw new Exception("Linked entities must have a relationship type ID.");
+        }
+        if (empty($entity->getEntityType())) {
+            throw new Exception("Entities must have an entity type.");
         }
         $this->entities[] = $entity;
         return $this;

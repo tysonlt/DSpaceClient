@@ -103,6 +103,7 @@ class DSpaceRest {
                                 if (array_key_exists($field, $item['metadata'])) {
                                     $meta = $item['metadata'][$field];
                                     if (count($meta) > 0) {
+                                        //TODO: check for multiple values
                                         $value = $item['metadata'][$field][0]['value'];
                                     }
                                 }
@@ -115,7 +116,7 @@ class DSpaceRest {
 
                         }
                         if (count($data) == 1) {
-                            $data = reset($data);
+                            $data = Arr::first($data);
                         }
                         $result[$item[$key_by]] = $data;
                     }
@@ -180,18 +181,18 @@ class DSpaceRest {
     /**
      * 
      */
-    protected function maybePluck($item, $pluck = []) {
+    protected function maybePluck($item, $pluck = [], $default = null) {
         $value = $item;
         if ($pluck) {
             $pluck = Arr::wrap($pluck);
             if ($pluck) {
                 $value = [];
                 foreach ($pluck as $field) {
-                    $value[$field] = $item[$field];
+                    $value[$field] = $item[$field] ?? $default;
                 }
                 $value = array_filter($value);
                 if (count($value) == 1) {
-                    $value = reset($value);
+                    $value = Arr::first($value);
                 }
             }
         }
@@ -237,21 +238,6 @@ class DSpaceRest {
             $uuid = $uuid->id;
         }
         return $this->request("/api/core/items/$uuid", 'DELETE');
-    }
-
-    public function submitTo(DSpaceItem $item, string $endpoint) {
-
-        $response = $this->request($endpoint, 'POST', $item->asArray());
-
-        if (empty($response['id'])) {
-            throw new DSpaceRequestFailureException("Item upload failed.", $response);
-        }
-
-        $item->id = $response['id'];
-        $item->handle = $response['handle'];
-
-        return $response;
-
     }
 
     /**
@@ -317,7 +303,16 @@ class DSpaceRest {
      * 
      */
     public function deleteFiles($item_uuid) {
+        foreach (array_keys($this->getItemFiles($item_uuid, null)) as $bitstream_uuid) {
+            $this->deleteBitstream($bitstream_uuid);
+        }
+    }
 
+    /**
+     * 
+     */
+    public function deleteBitstream($bitstream_uuid) {
+        return $this->request("/api/core/bitstreams/". $bitstream_uuid, 'DELETE');
     }
 
     /**
@@ -396,6 +391,7 @@ class DSpaceRest {
      */
     public function uploadItemFiles(DSpaceItem $item) : array {
         $result = [];
+        $this->ensureRemoteId($item);
         if ($item->hasFiles()) {
             $this->findOrCreateBundle($item);
             foreach ($item->getFiles() as $file) {
@@ -438,7 +434,7 @@ class DSpaceRest {
      */
     public function getItemFiles($item_uuid, $bundle_name = 'ORIGINAL') {
         foreach ($this->getItemBundles($item_uuid) as $bundle) {
-            if ($bundle['name'] == $bundle_name) {
+            if (empty($bundle_name) || $bundle['name'] == $bundle_name) {
                 $href = Arr::get($bundle, '_links.bitstreams.href');
                 $bitstreams = $this->request($href);
                 $files = [];
@@ -454,28 +450,33 @@ class DSpaceRest {
     /**
      * 
      */
-    protected function findOrCreateBundle(DSpaceItem $item, string $bundle_name="ORIGINAL") {
+    protected function findOrCreateBundle(DSpaceItem $item, string $bundleName="ORIGINAL") {
         
         $this->ensureRemoteId($item);
 
-        $bundles = $this->getItemBundles($item->id);
-        if (empty($bundles)) {
-            $data = ['name' => $bundle_name, 'metadata' => new \stdClass];
-            $bundle = $this->request($item->bundles_uri, 'POST', $data);
-        } else {
-            $bundle = $bundles[0];
-        }
+        if (empty($item->bitstreams_uri)) {
 
-        $item->bitstreams_uri = Arr::get($bundle, '_links.bitstreams.href');
-        $item->primary_bitstream_uri = Arr::get($bundle, '_links.primaryBitstream.href');
+            $bundles = $this->getItemBundles($item->id);
+            if (empty($bundles)) {
+                $data = ['name' => $bundleName, 'metadata' => new \stdClass];
+                $bundle = $this->request($item->bundles_uri, 'POST', $data);
+            } else {
+                $bundle = $bundles[0];
+            }
+
+            $item->bitstreams_uri = Arr::get($bundle, '_links.bitstreams.href');
+            $item->primary_bitstream_uri = Arr::get($bundle, '_links.primaryBitstream.href');
+
+        }
 
     }
 
     /**
      * 
      */
-    protected function uploadFile(DSpaceItem $item, File $file) : array {
+    protected function uploadFile(DSpaceItem $item, File $file, $bundleName = "ORIGINAL") : array {
         $response = false;
+        $this->findOrCreateBundle($item, $bundleName);
         if ($cfile = $file->getCURLFile(true)) {
             $response = $this->request($item->bitstreams_uri, 'POST', [], $cfile);
             $file->deleteTempFile();
@@ -496,11 +497,11 @@ class DSpaceRest {
      * 
      */
     protected function login() {
-        $auth_request = '/api/authn/login';
+        $auth_request = sprintf('/api/authn/login?user=%s&password=%s', rawurlencode($this->username), rawurlencode($this->password));
         return $this->_request($auth_request, 'POST', [
             'user' => $this->username,
             'password' => $this->password
-        ]);
+        ]); //added body to prevent 411 - no content length (a curl bug?)
     }
 
     /**
@@ -518,6 +519,7 @@ class DSpaceRest {
 
             try {
                 
+                error_log("Attempting dspace login as ". $this->username);
                 $this->login();
                 $response = $this->_request($uri, $method, $data, $file, $uri_list);
 
