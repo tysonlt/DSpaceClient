@@ -3,6 +3,7 @@
 namespace DSpaceClient;
 
 use CURLFile;
+use DSpaceClient\Exceptions\DSpaceException;
 use Exception;
 
 class File {
@@ -67,7 +68,7 @@ class File {
         $response = $client->request('GET', $this->uri, $data);
 
         if ($response->getStatusCode() != 200) {
-            throw new Exception("Failed to download '{$this->uri}': HTTP ". $response->getStatusCode());
+            throw new DSpaceException("Failed to download '{$this->uri}': HTTP ". $response->getStatusCode());
         }
 
         return $response->getBody();

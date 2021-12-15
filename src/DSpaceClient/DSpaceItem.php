@@ -2,6 +2,7 @@
 
 namespace DSpaceClient;
 
+use DSpaceClient\Exceptions\DSpaceInvalidArgumentException;
 use Exception;
 
 class DSpaceItem {
@@ -129,10 +130,10 @@ class DSpaceItem {
 
     public function addEntity(DSpaceItem $entity) : DSpaceItem {
         if (empty($entity->getRelationshipTypeId())) {
-            throw new Exception("Linked entities must have a relationship type ID.");
+            throw new DSpaceInvalidArgumentException("Linked entities must have a relationship type ID.");
         }
         if (empty($entity->getEntityType())) {
-            throw new Exception("Entities must have an entity type.");
+            throw new DSpaceInvalidArgumentException("Entities must have an entity type.");
         }
         $this->entities[] = $entity;
         return $this;

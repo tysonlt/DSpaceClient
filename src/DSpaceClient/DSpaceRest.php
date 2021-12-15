@@ -2,6 +2,11 @@
 
 namespace DSpaceClient;
 
+use DSpaceClient\Exceptions\DSpaceException;
+use DSpaceClient\Exceptions\DSpaceHttpStatusException;
+use DSpaceClient\Exceptions\DSpaceInvalidArgumentException;
+use DSpaceClient\Exceptions\DSpaceRequestFailureException;
+use DSpaceClient\Exceptions\DSpaceAuthorisationException;
 use Exception;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
@@ -25,6 +30,7 @@ class DSpaceRest {
     protected $password;
     protected $bearer_token;
     protected $csrf_token;
+    protected $reset_http_transport = false;
 
     /**
      * 
@@ -33,6 +39,15 @@ class DSpaceRest {
         $this->api_root = rtrim($api_root. '/');
         $this->username = $username;
         $this->password = $password;
+    }
+
+    /**
+     * Tell the underlying HTTP transport to clear any session data.
+     * 
+     * Useful for when credentials have changed.
+     */
+    public function resetTransport() {
+        $this->reset_http_transport = true;
     }
 
     /**
@@ -64,7 +79,7 @@ class DSpaceRest {
         foreach (Arr::get($response, '_embedded.items', []) as $item) {
             $key = $item[$key_by];
             if (array_key_exists($key, $result)) {
-                throw new Exception("DSpaceRest::getItemsByPage(): DUPLICATE KEY $key_by:$key\n");
+                throw new DSpaceException("DSpaceRest::getItemsByPage(): DUPLICATE KEY $key_by:$key\n");
             }
             $result[$key] = $item;
             $count++;
@@ -333,7 +348,7 @@ class DSpaceRest {
         if ($strategy != self::STRATEGY_ADD && 
             $strategy != self::STRATEGY_REPLACE && 
             $strategy != self::STRATEGY_NO_CHANGE) {
-                throw new DSpaceException("Invalid strategy flag: $strategy");
+                throw new DSpaceInvalidArgumentException("Invalid strategy flag: $strategy");
         }
     }
 
@@ -414,7 +429,7 @@ class DSpaceRest {
                 if ($relationship_type_id = $entity->getRelationshipTypeId()) {
                     $this->createRelationship($relationship_type_id, $item->id, $entity->id);
                 } else {
-                    throw new DSpaceException("Linked entities must have a relationship type id.");
+                    throw new DSpaceInvalidArgumentException("Linked entities must have a relationship type id.");
                 }
             }
         }
@@ -489,7 +504,7 @@ class DSpaceRest {
      */
     protected function ensureRemoteId(DSpaceItem $item) {
         if (empty($item->id)) {
-            throw new Exception("DSpaceItem has no ID set: has it been uploaded yet?");
+            throw new DSpaceInvalidArgumentException("DSpaceItem has no ID set: has it been uploaded yet?");
         }
     }
 
@@ -502,6 +517,26 @@ class DSpaceRest {
             'user' => $this->username,
             'password' => $this->password
         ]); //added body to prevent 411 - no content length (a curl bug?)
+    }
+
+    public function isAuthenticated($throwExceptions = false) : bool {
+        
+        try {
+        
+            $response = $this->_request('/api/authn/status');
+            if (Arr::get($response, 'okay')) {
+                return Arr::get($response, 'authenticated', false);
+            }
+
+            return false;
+        
+        } catch (Exception $e) {
+            if ($throwExceptions) {
+                throw $e;
+            }
+            return false;
+        }
+
     }
 
     /**
@@ -526,9 +561,9 @@ class DSpaceRest {
             } catch (DSpaceHttpStatusException $e) {
                 error_log(sprintf("DSpaceHttpStatusException: %s, code=%s", $e->getMessage(), $e->getCode()));
                 if ($data = json_decode($e->response)) {
-                    throw new Exception("DSpace said: ". $data->message .': '. $data->error);
+                    throw new DSpaceException("DSpace said: ". $data->message .': '. $data->error);
                 }
-                throw new Exception("Couldn't connect to DSpace, perhaps your credentials are wrong.");
+                throw new DSpaceAuthorisationException("Couldn't connect to DSpace, perhaps your credentials are wrong.");
             }
 
         }
@@ -573,7 +608,13 @@ class DSpaceRest {
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
         
         }
-        
+
+        if ($this->reset_http_transport) {
+            curl_setopt($ch, CURLOPT_COOKIESESSION, true);
+            curl_setopt($ch, CURLOPT_FRESH_CONNECT, true);
+            $this->reset_http_transport = false;
+        }
+
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10); 
@@ -614,27 +655,3 @@ class DSpaceRest {
     }
 
 }
-
-/**
- * 
- */
-class DSpaceHttpStatusException extends DSpaceException {
-    public $response;
-    public function __construct($status, $response) {
-        parent::__construct("HTTP STATUS: $status", $status);
-        $this->response = $response;
-    }
-}
-
-/**
- * 
- */
-class DSpaceRequestFailureException extends DSpaceException {
-    public $response;
-    public function __construct($message, $response) {
-        parent::__construct($message);
-        $this->response = $response;
-    }
-}
-
-class DSpaceException extends Exception {}
