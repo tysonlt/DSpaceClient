@@ -7,6 +7,7 @@ use DSpaceClient\Exceptions\DSpaceHttpStatusException;
 use DSpaceClient\Exceptions\DSpaceInvalidArgumentException;
 use DSpaceClient\Exceptions\DSpaceRequestFailureException;
 use DSpaceClient\Exceptions\DSpaceAuthorisationException;
+use DSpaceClient\Exceptions\DSpaceUserConsumableException;
 use Exception;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
@@ -550,21 +551,10 @@ class DSpaceRest {
             
             $response = $this->_request($uri, $method, $data, $file, $uri_list);
 
-        } catch (DSpaceHttpStatusException $e) {
+        } catch (DSpaceAuthorisationException $e) {
 
-            try {
-                
-                error_log("Attempting dspace login as ". $this->username);
-                $this->login();
-                $response = $this->_request($uri, $method, $data, $file, $uri_list);
-
-            } catch (DSpaceHttpStatusException $e) {
-                error_log(sprintf("DSpaceHttpStatusException: %s, code=%s", $e->getMessage(), $e->getCode()));
-                if ($data = json_decode($e->response)) {
-                    throw new DSpaceException("DSpace said: ". $data->message .': '. $data->error);
-                }
-                throw new DSpaceAuthorisationException("Couldn't connect to DSpace, perhaps your credentials are wrong.");
-            }
+            $this->login();
+            $response = $this->_request($uri, $method, $data, $file, $uri_list);
 
         }
 
@@ -628,7 +618,8 @@ class DSpaceRest {
         curl_close($ch);
 
         if ($status >= 400) {
-            throw new DSpaceHttpStatusException($status, $response);
+            $exceptionClass = $status == 401 ? DSpaceAuthorisationException::class : DSpaceHttpStatusException::class;
+            throw new $exceptionClass($status, $response);
         }
 
         if ($response) {
