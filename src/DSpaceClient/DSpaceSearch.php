@@ -3,6 +3,7 @@
 namespace DSpaceClient;
 
 use Illuminate\Support\Arr;
+use Illuminate\Support\Str;
 
 /**
  * 
@@ -10,10 +11,15 @@ use Illuminate\Support\Arr;
 class DSpaceSearch {
 
     public $scope = null;
-    public $sort = 'dc.title';
     public $pluck_fields = [];
     public $field_aliases = [];
     public $filters = [];
+    public $size = 100;
+    public $page = 0;
+    public $sort = 'dc.title'; //TODO: allow multiple
+    public $sortDir = 'asc';
+    public $serverPageData = [];
+    public $query = null;
 
     public function addFilter($key, $value, $operator='equals') {
         $this->filters[] = [
@@ -29,8 +35,36 @@ class DSpaceSearch {
         return $this;
     }
 
-    public function setSort($sort) {
+    public function setQuery($query, ...$fields) {
+        if (! empty($fields)) {
+            $parts = [];
+            foreach ($fields as $field) {
+                $parts[] = sprintf('%s:%s', $field, $query);
+            }
+            $this->query = join(' OR ', $parts);
+        } else {
+            $this->query = $query;
+        }
+        return $this;
+    }
+
+    public function setSort($sort, $desc = true) {
         $this->sort = $sort;
+        $this->sortDir = $desc;
+        return $this;
+    }
+
+    public function sortBy($sort, $desc = true) {
+        return $this->setSort($sort, $desc);
+    }
+
+    public function setPageSize(int $size) {
+        $this->size = $size;
+        return $this;
+    }
+
+    public function setPage(int $page) {
+        $this->page = $page;
         return $this;
     }
 
@@ -51,10 +85,26 @@ class DSpaceSearch {
     }
 
     public function getFieldAlias($field) {
+        if (Str::startsWith($field, 'meta:')) {
+            $field = Str::after($field, 'meta:');
+        }
         return Arr::get($this->field_aliases, $field, $field);
     }
 
-    public function buildEndpoint($page = false) {
+    public function nextPage() {
+        $this->page++;
+    }
+
+    public function hasMorePages() {
+        $page = Arr::get($this->serverPageData, 'number', null);
+        $totalPages = Arr::get($this->serverPageData, 'totalPages', null);
+        if (is_null($page) || is_null($totalPages)) {
+            return false;
+        }
+        return $page < ($totalPages - 1);
+    }
+
+    public function buildEndpoint() {
 
         $endpoint = '/api/discover/search/objects';
         $query = [];
@@ -63,15 +113,24 @@ class DSpaceSearch {
         }
 
         if ($this->sort) {
-            $query['sort'] = $this->sort;
+            $query['sort'] = sprintf('%s,%s', $this->sort, $this->sortDir);
         }
 
         foreach ($this->filters as $filter) {
             $query[$filter['key']] = $filter['value'] .','. $filter['operator'];
         }
 
-        if (false !== $page) {
-            $query['page'] = $page;
+        if ($this->size) {
+            $query['size'] = $this->size;
+        }
+
+        $this->query = trim($this->query);
+        if (! empty($this->query)) {
+            $query['query'] = $this->query;
+        }
+
+        if (! is_null($this->page)) {
+            $query['page'] = $this->page;
         }
 
         return $endpoint .'?'. http_build_query($query);
