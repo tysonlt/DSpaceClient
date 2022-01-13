@@ -72,11 +72,19 @@ class DSpaceRest {
     }
 
     /**
+     * Returns the item, or possibly a string if single pluck field requested.
+     */
+    public function getItem($uuid, $pluck = []) {
+        $response = $this->request('/api/core/items/'. $uuid);
+        return $this->maybePluck($response, $pluck);
+    }
+
+    /**
      * 
      */
     public function getItemsByPage(int $page, array &$result, string $key_by = 'id', int $size = 100) : int {
         $count = 0;
-        $response = $this->request("/api/core/item?page=$page&size=$size");
+        $response = $this->request("/api/core/items?page=$page&size=$size");
         foreach (Arr::get($response, '_embedded.items', []) as $item) {
             $key = $item[$key_by];
             if (array_key_exists($key, $result)) {
@@ -91,56 +99,43 @@ class DSpaceRest {
     /**
      * 
      */
-    public function search(DSpaceSearch $search, $key_by = 'id', $page = 0) : array {
+    public function search(DSpaceSearch $search, $key_by = null) : array {
 
         $result = [];
 
-        $use_page = false !== $page;
-        $page = 0;
-        $has_more = true;
+        $endpoint = $search->buildEndpoint();
+        // error_log($endpoint);
+        $response = $this->request($endpoint);
 
-        while ($has_more) {
-            $endpoint = $search->buildEndpoint($page++);
-            $response = $this->request($endpoint);
-            $hits = Arr::get($response, '_embedded.searchResult._embedded.objects', []);
-            if (empty($hits)) {
-                $has_more = false;
+        $hits = Arr::get($response, '_embedded.searchResult._embedded.objects', []);
+        $search->serverPageData = Arr::get($response, '_embedded.searchResult.page', []);
+
+        foreach ($hits as $hit) {
+            $item = Arr::get($hit, '_embedded.indexableObject');
+            if (empty($search->pluck_fields)) {
+                if ($key_by) {
+                    $result[$item[$key_by]] = $item;
+                } else {
+                    $result[] = $item;
+                }
             } else {
-                foreach ($hits as $hit) {
-                    $item = Arr::get($hit, '_embedded.indexableObject');
-                    if (empty($search->pluck_fields)) {
-                        $result[$item[$key_by]] = $item;
-                    } else {
-                        $data = [];
-                        foreach ($search->pluck_fields as $field) {
-                            $value = '';
-                            if (Str::startsWith($field, 'meta:')) {
-                                $field = Str::after($field, 'meta:');
-                                if (array_key_exists($field, $item['metadata'])) {
-                                    $meta = $item['metadata'][$field];
-                                    if (count($meta) > 0) {
-                                        //TODO: check for multiple values
-                                        $value = $item['metadata'][$field][0]['value'];
-                                    }
-                                }
-                            } else {
-                                $value = data_get($item, $field);
-                            }
+                $data = [];
+                foreach ($search->pluck_fields as $field) {
+                    $value = $this->pluck($item, $field);
+                    $key_name = $search->getFieldAlias($field);
+                    $data[$key_name] = $value;
 
-                            $key_name = $search->getFieldAlias($field);
-                            $data[$key_name] = $value;
-
-                        }
-                        if (count($data) == 1) {
-                            $data = Arr::first($data);
-                        }
-                        $result[$item[$key_by]] = $data;
-                    }
+                }
+                if (count($data) == 1) {
+                    $data = Arr::first($data);
+                }
+                if ($key_by) {
+                    $result[$item[$key_by]] = $data;
+                } else {
+                    $result[] = $data;
                 }
             }
-            if (!$use_page) {
-                $has_more = false;
-            }
+        
         }
 
         return $result;
@@ -201,18 +196,43 @@ class DSpaceRest {
         $value = $item;
         if ($pluck) {
             $pluck = Arr::wrap($pluck);
-            if ($pluck) {
-                $value = [];
-                foreach ($pluck as $field) {
-                    $value[$field] = $item[$field] ?? $default;
-                }
-                $value = array_filter($value);
-                if (count($value) == 1) {
-                    $value = Arr::first($value);
-                }
+            $value = [];
+            foreach ($pluck as $field) {
+                $value[$field] = $this->pluck($item, $field, $default);
+            }
+            $value = array_filter($value);
+            if (count($value) == 1) {
+                $value = Arr::first($value);
             }
         }
         return $value;
+    }
+
+    /**
+     * 
+     */
+    protected function pluck(array $item, string $field, $default = null, $glue = '; ') {
+        
+        $value = null;
+
+        if (Str::startsWith($field, 'meta:')) {
+            $field = Str::after($field, 'meta:');
+            if (array_key_exists($field, $item['metadata'])) {
+                $metadata = $item['metadata'][$field];
+                if (count($metadata) > 0) {
+                    $join = [];
+                    foreach ($metadata as $meta) {
+                        $join[] = $meta['value'] ?? $default;
+                    }
+                    $value = join($glue, array_filter($join));
+                }
+            }
+        } else {
+            $value = data_get($item, $field, $default);
+        }
+
+        return $value;
+
     }
 
     /**
@@ -548,7 +568,7 @@ class DSpaceRest {
         $response = null;
 
         try {
-            
+
             $response = $this->_request($uri, $method, $data, $file, $uri_list);
 
         } catch (DSpaceAuthorisationException $e) {
@@ -618,7 +638,7 @@ class DSpaceRest {
         curl_close($ch);
 
         if ($status >= 400) {
-            $exceptionClass = $status == 401 ? DSpaceAuthorisationException::class : DSpaceHttpStatusException::class;
+            $exceptionClass = $status == 401 || $status == 403 ? DSpaceAuthorisationException::class : DSpaceHttpStatusException::class;
             throw new $exceptionClass($status, $response);
         }
 

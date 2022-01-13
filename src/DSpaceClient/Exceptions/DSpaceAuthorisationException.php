@@ -5,4 +5,4 @@ namespace DSpaceClient\Exceptions;
 /**
  * 
  */
-class DSpaceAuthorisationException extends DSpaceException { }
+class DSpaceAuthorisationException extends DSpaceHttpStatusException { }
