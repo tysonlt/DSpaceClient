@@ -21,7 +21,7 @@ class DSpaceItem {
     protected $files = [];
     protected $entities = [];
 
-    public static function fromRestResponse(array $response) : static {
+    public static function fromRestResponse(array $response) : DSpaceItem {
         
         $item = new static();
 
@@ -98,12 +98,12 @@ class DSpaceItem {
         return $this->getMeta('dspace.entity.type', true);
     }
 
-    public function setEntityType(string $entityType) : static {
+    public function setEntityType(string $entityType) : DSpaceItem {
         $this->addMeta('dspace.entity.type', $entityType);
         return $this;
     }
 
-    public function setOwningCollection($collection_id) : static {
+    public function setOwningCollection($collection_id) : DSpaceItem {
         $this->collection_id = $collection_id;
         return $this;
     }
@@ -112,7 +112,7 @@ class DSpaceItem {
         return $this->relationship_type_id;
     }
 
-    public function setRelationshipTypeId($relationship_type_id) : static {
+    public function setRelationshipTypeId($relationship_type_id) : DSpaceItem {
         $this->relationship_type_id = $relationship_type_id;
         return $this;
     }
@@ -129,7 +129,7 @@ class DSpaceItem {
         return $this->buildOutput($this->name, $this->meta);
     }
 
-    public function addFile(File $file) : static {
+    public function addFile(File $file) : DSpaceItem {
         $this->files[] = $file;
         return $this;
     }
@@ -150,7 +150,7 @@ class DSpaceItem {
         return false;
     }
 
-    public function addEntity(DSpaceItem $entity) : static {
+    public function addEntity(DSpaceItem $entity) : DSpaceItem {
         if (empty($entity->getRelationshipTypeId())) {
             throw new DSpaceInvalidArgumentException("Linked entities must have a relationship type ID.");
         }
@@ -202,7 +202,7 @@ class DSpaceItem {
 
     }
 
-    public function addMeta(string $key, $value, string $language="en", $authority=null, $confidence=-1) : static {
+    public function addMeta(string $key, $value, string $language="en", $authority=null, $confidence=-1) : DSpaceItem {
         
         if (empty($value)) {
             return $this;
