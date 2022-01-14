@@ -20,8 +20,18 @@ class DSpaceSearch {
     public $sortDir = 'asc';
     public $serverPageData = [];
     public $query = null;
+    public $pipe = null;
 
-    public function addFilter($key, $value, $operator='equals') {
+    public function pipe($callback) : DSpaceSearch {
+        $this->pipe = $callback;
+        return $this;
+    }
+
+    public function hasPipe() : bool {
+        return ! is_callable($this->pipe);
+    }
+
+    public function addFilter($key, $value, $operator='equals') : DSpaceSearch { 
         $this->filters[] = [
             'key' => $key,
             'value' => $value,
@@ -30,12 +40,12 @@ class DSpaceSearch {
         return $this;
     }
 
-    public function setScope($scope) {
+    public function setScope($scope) : DSpaceSearch {
         $this->scope = $scope;
         return $this;
     }
 
-    public function setQuery($query, ...$fields) {
+    public function setQuery($query, ...$fields) : DSpaceSearch {
         if (! empty($fields)) {
             $parts = [];
             foreach ($fields as $field) {
@@ -48,7 +58,7 @@ class DSpaceSearch {
         return $this;
     }
 
-    public function setSort($sort, $desc = true) {
+    public function setSort($sort, $desc = true) : DSpaceSearch {
         $this->sort = $sort;
         $this->sortDir = $desc;
         return $this;
@@ -58,17 +68,17 @@ class DSpaceSearch {
         return $this->setSort($sort, $desc);
     }
 
-    public function setPageSize(int $size) {
+    public function setPageSize(int $size) : DSpaceSearch {
         $this->size = $size;
         return $this;
     }
 
-    public function setPage(int $page) {
+    public function setPage(int $page) : DSpaceSearch {
         $this->page = $page;
         return $this;
     }
 
-    public function pluck($field, $key_name = null) {
+    public function pluck($field, $key_name = null) : DSpaceSearch {
         $this->pluck_fields[] = $field;
         if ($key_name) {
             $this->field_aliases[$field] = $key_name;
@@ -76,7 +86,7 @@ class DSpaceSearch {
         return $this;
     }
 
-    public function pluckMeta($field, $key_name = null) {
+    public function pluckMeta($field, $key_name = null) : DSpaceSearch {
         $this->pluck_fields[] = 'meta:'. $field;
         if ($key_name) {
             $this->field_aliases[$field] = $key_name;

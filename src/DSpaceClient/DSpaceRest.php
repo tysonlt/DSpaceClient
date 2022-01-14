@@ -113,7 +113,6 @@ class DSpaceRest {
         $result = [];
 
         $endpoint = $search->buildEndpoint();
-        // error_log($endpoint);
         $response = $this->request($endpoint);
 
         $hits = Arr::get($response, '_embedded.searchResult._embedded.objects', []);
@@ -121,6 +120,11 @@ class DSpaceRest {
 
         foreach ($hits as $hit) {
             $item = Arr::get($hit, '_embedded.indexableObject');
+
+            if (!$search->hasPipe()) {
+                call_user_func($search->pipe, $item);
+            }
+
             if (empty($search->pluck_fields)) {
                 if ($key_by) {
                     $result[$item[$key_by]] = $item;
