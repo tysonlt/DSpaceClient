@@ -4,6 +4,7 @@ namespace DSpaceClient;
 
 use DSpaceClient\Exceptions\DSpaceInvalidArgumentException;
 use Exception;
+use Illuminate\Support\Str;
 
 class DSpaceItem {
 
@@ -76,6 +77,15 @@ class DSpaceItem {
 
     public function setName(string $name) : DSpaceItem {
         $this->name = $name;
+        return $this;
+    }
+
+    public function getHandle() {
+        return $this->handle;
+    }
+
+    public function setHandle(string $handle) : DSpaceItem {
+        $this->handle = $handle;
         return $this;
     }
 
@@ -177,29 +187,40 @@ class DSpaceItem {
         return $this->entities;
     }
 
-    public function getMeta($key = null, bool $first = true) {
 
-        if (empty($key)) {
-            return $this->meta;
+    public function getMeta(string $key, bool $first = true) {
+        $result = $this->getMetaArray($key);
+        if ($first) {
+            $result = ! empty($result) ? $result[0] : null;
         }
+        return $result;
+    }
 
-        $result = [];
+    public function getMetaArray($key) : array {
+        return 
+            array_key_exists($key, $this->meta) ?
+            array_map('trim', array_column($this->meta[$key], 'value')) :
+            [];
+    }
 
-        if (!array_key_exists($key, $this->meta)) {
-            return null;
-        }
-
-        foreach ($this->meta[$key] as $meta) {
-            $value = $meta['value'];
-            if ($first) {
-                return $value;
-            } else {
-                $result[] = $value;
+    public function getMetaArrayWildcard($meta_key_search, bool $first = true) : array {
+        $found = [];
+        $context = Str::before($meta_key_search, '*');
+        foreach ($this->meta as $key => $meta) {
+            if (Str::startsWith($key, $context)) {
+                if (!array_key_exists($key, $found)) {
+                    $found[$key] = [];
+                }
+                if ($first) {
+                    $found[$key] = $meta[0]['value'];
+                } else {
+                    foreach ($meta as $entry) {
+                        $found[$key][] = $entry['value'];
+                    }
+                }
             }
         }
-
-        return $result;
-
+        return $found;
     }
 
     public function addMeta(string $key, $value, string $language="en", $authority=null, $confidence=-1) : DSpaceItem {
