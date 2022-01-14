@@ -72,9 +72,18 @@ class DSpaceRest {
     }
 
     /**
-     * Returns the item, or possibly a string if single pluck field requested.
+     * Return a DSpaceItem object
      */
-    public function getItem($uuid, $pluck = []) {
+    public function getItem($uuid) : DSpaceItem {
+        return DSpaceItem::fromRestResponse( 
+            $this->request('/api/core/items/'. $uuid)
+        );
+    }
+
+    /**
+     * Returns the item array, or possibly a string if single pluck field requested.
+     */
+    public function pluckItemField($uuid, $pluck) {
         $response = $this->request('/api/core/items/'. $uuid);
         return $this->maybePluck($response, $pluck);
     }
