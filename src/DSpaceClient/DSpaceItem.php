@@ -8,10 +8,10 @@ use Exception;
 class DSpaceItem {
 
     public $id = null;
+    public $name = null;
     public $handle = null;
     public $collection_id = null;
     public $relationship_type_id = null;
-    public $name = null;
     public $props = [];
 
     public $bitstreams_uri = null;
@@ -21,10 +21,31 @@ class DSpaceItem {
     protected $files = [];
     protected $entities = [];
 
-    public function __construct(string $name = null, $id = null, $collection_id = null) {
+    public static function fromRestResponse(array $response) : static {
+        
+        $item = new static();
+
+        $item->id = $response['id'] ?? null;
+        $item->name = $response['name'] ?? null;
+        $item->handle = $response['handle'] ?? null;
+
+        $item->setEntityType($response['entityType'] ?? null);
+
+        foreach ($item->props as $k => $v) {
+            $item->props[$k] = $response[$k] ?? $v;
+        }
+
+        $item->meta = $response['metadata'] ?? [];
+
+        return $item;
+
+    }
+
+    public function __construct(string $name = null, string $id = null, string $collection_id = null) {
         $this->name = $name;
         $this->id = $id;
         $this->collection_id = $collection_id;
+        $this->setDefaultProps();
     }
 
     public function getId() {
@@ -77,11 +98,12 @@ class DSpaceItem {
         return $this->getMeta('dspace.entity.type', true);
     }
 
-    public function setEntityType(string $entityType) {
+    public function setEntityType(string $entityType) : static {
         $this->addMeta('dspace.entity.type', $entityType);
+        return $this;
     }
 
-    public function setOwningCollection($collection_id) : DSpaceItem {
+    public function setOwningCollection($collection_id) : static {
         $this->collection_id = $collection_id;
         return $this;
     }
@@ -90,7 +112,7 @@ class DSpaceItem {
         return $this->relationship_type_id;
     }
 
-    public function setRelationshipTypeId($relationship_type_id) : DSpaceItem {
+    public function setRelationshipTypeId($relationship_type_id) : static {
         $this->relationship_type_id = $relationship_type_id;
         return $this;
     }
@@ -107,7 +129,7 @@ class DSpaceItem {
         return $this->buildOutput($this->name, $this->meta);
     }
 
-    public function addFile(File $file) : DSpaceItem {
+    public function addFile(File $file) : static {
         $this->files[] = $file;
         return $this;
     }
@@ -128,7 +150,7 @@ class DSpaceItem {
         return false;
     }
 
-    public function addEntity(DSpaceItem $entity) : DSpaceItem {
+    public function addEntity(DSpaceItem $entity) : static {
         if (empty($entity->getRelationshipTypeId())) {
             throw new DSpaceInvalidArgumentException("Linked entities must have a relationship type ID.");
         }
@@ -180,7 +202,7 @@ class DSpaceItem {
 
     }
 
-    public function addMeta(string $key, $value, string $language="en", $authority=null, $confidence=-1) : DSpaceItem {
+    public function addMeta(string $key, $value, string $language="en", $authority=null, $confidence=-1) : static {
         
         if (empty($value)) {
             return $this;
