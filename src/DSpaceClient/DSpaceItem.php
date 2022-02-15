@@ -145,9 +145,23 @@ class DSpaceItem {
     }
 
     public function hasEntity(string $entityType, string $uuid, ?int $relationshipTypeId = null) : bool {
-        /** @var DSpaceItem $entity */
         foreach ($this->getEntities() as $entity) {
             if ($entity->getEntityType() == $entityType && $entity->getUuid() == $uuid) {
+                if ($relationshipTypeId) {
+                    if ($entity->getRelationshipTypeId() == $relationshipTypeId) {
+                        return true;
+                    }
+                } else {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public function hasEntityById(string $uuid, ?int $relationshipTypeId = null) : bool {
+        foreach ($this->getEntities() as $entity) {
+            if ($entity->getUuid() == $uuid) {
                 if ($relationshipTypeId) {
                     if ($entity->getRelationshipTypeId() == $relationshipTypeId) {
                         return true;
@@ -187,6 +201,9 @@ class DSpaceItem {
         return $this->entities;
     }
 
+    public function hasMeta(string $key) : bool {
+        return array_key_exists($key, $this->meta); 
+    }
 
     public function getMeta(string $key, bool $first = true) {
         $result = $this->getMetaArray($key);

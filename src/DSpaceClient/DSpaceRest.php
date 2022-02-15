@@ -7,7 +7,7 @@ use DSpaceClient\Exceptions\DSpaceHttpStatusException;
 use DSpaceClient\Exceptions\DSpaceInvalidArgumentException;
 use DSpaceClient\Exceptions\DSpaceRequestFailureException;
 use DSpaceClient\Exceptions\DSpaceAuthorisationException;
-use DSpaceClient\Exceptions\DSpaceUserConsumableException;
+use DSpaceClient\Exceptions\DSpaceInvalidRequestException;
 use Exception;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
@@ -19,7 +19,10 @@ class DSpaceRest {
 
     public const STRATEGY_ADD          = 'add';
     public const STRATEGY_REPLACE      = 'replace';
+    public const STRATEGY_SYNC         = 'sync';
     public const STRATEGY_NO_CHANGE    = 'none';
+
+    public const DEFAULT_BUNDLE_NAME   = 'ORIGINAL';
 
     protected const XSRF_HEADER = 'DSPACE-XSRF-TOKEN';
     protected const AUTH_HEADER = 'Authorization: Bearer';
@@ -75,7 +78,7 @@ class DSpaceRest {
      * Return a DSpaceItem object
      */
     public function getItem($uuid) : DSpaceItem {
-        return DSpaceItem::fromRestResponse( 
+        return DSpaceItem::fromRestResponse(
             $this->request('/api/core/items/'. $uuid)
         );
     }
@@ -165,8 +168,10 @@ class DSpaceRest {
      * If $pluck is not set, whole item will be returned.
      */
     public function fetchCoreEndpoint($core_endpoint, $pluck = [], $resolve_links = []) {
+
         $result = [];
         $links = [];
+        
         $response = $this->request("/api/core/$core_endpoint");
         foreach (Arr::get($response, "_embedded.$core_endpoint", []) as $item) {
             
@@ -195,11 +200,13 @@ class DSpaceRest {
             }
 
         }
+
         if ($resolve_links) {
             return [$result, $links];
         } else {
             return $result;
         }
+
     }
 
     /**
@@ -321,7 +328,8 @@ class DSpaceRest {
      */
     public function update(DSpaceItem $item, 
         string $file_strategy = self::STRATEGY_NO_CHANGE, 
-        string $relationship_strategy = self::STRATEGY_NO_CHANGE) {
+        string $relationship_strategy = self::STRATEGY_NO_CHANGE
+    ) {
 
         $this->ensureRemoteId($item);
         $uri = '/api/core/items/'. $item->id;
@@ -331,16 +339,25 @@ class DSpaceRest {
         if ($file_strategy != self::STRATEGY_NO_CHANGE) {
             if ($file_strategy == self::STRATEGY_REPLACE) {
                 $this->deleteFiles($item->id);
+                $this->uploadItemFiles($item);
+            } else if ($file_strategy == self::STRATEGY_ADD) {
+                $this->uploadItemFiles($item);
+            } else {
+                throw new DSpaceInvalidRequestException("SYNC strategy for files is not possible.");
             }
-            $this->uploadItemFiles($item);
         }
 
         $this->validateStrategy($relationship_strategy);
         if ($relationship_strategy != self::STRATEGY_NO_CHANGE) {
             if ($relationship_strategy == self::STRATEGY_REPLACE) {
                 $this->deleteRelationships($item->id);
+                $this->createItemRelationships($item);
+            } else if ($relationship_strategy == self::STRATEGY_ADD) {
+                $this->createItemRelationships($item);
+            } else {
+                $this->syncRelationships($item);
             }
-            $this->createItemRelationships($item);
+            
         }
 
         return $response;
@@ -380,6 +397,7 @@ class DSpaceRest {
      */
     protected function validateStrategy($strategy) {
         if ($strategy != self::STRATEGY_ADD && 
+            $strategy != self::STRATEGY_SYNC && 
             $strategy != self::STRATEGY_REPLACE && 
             $strategy != self::STRATEGY_NO_CHANGE) {
                 throw new DSpaceInvalidArgumentException("Invalid strategy flag: $strategy");
@@ -442,13 +460,58 @@ class DSpaceRest {
         $result = [];
         $this->ensureRemoteId($item);
         if ($item->hasFiles()) {
-            $this->findOrCreateBundle($item);
             foreach ($item->getFiles() as $file) {
                 $status = false === $this->uploadFile($item, $file) ? "FAILED!" : "OK";
                 $result[$file->filename] = $status;
             }
         } 
         return $result;
+    }
+
+    /**
+     * Only supports item as the left type.
+     */
+    public function syncRelationships(DSpaceItem $item) {
+
+        //fetch current relationships
+        $this->ensureRemoteId($item);
+
+        //if item has no entities, just delete all of the relationships and return
+        if (! $item->hasEntities()) {
+            $this->deleteRelationships($item->id);
+            return;
+        } 
+
+        $relationships = $this->getItemRelationships($item->id);
+
+        //look for remote relationships no longer in the edited item
+        foreach ($relationships as $rel) {
+            $right_id = Str::afterLast(Arr::get($rel, '_links.rightItem.href'), '/');
+            $relationship_type_id = Str::afterLast(Arr::get($rel, '_links.relationshipType.href'), '/');
+            if (! $item->hasEntityById($right_id, $relationship_type_id)) {
+                $this->request(Arr::get($rel, '_links.self.href'), 'DELETE');
+            }
+        }
+
+        //find local entities that have no matching remote relationship
+        $remote_keys = array_map(function($rel) {
+            $right_id = Str::afterLast(Arr::get($rel, '_links.rightItem.href'), '/');
+            $relationship_type_id = Str::afterLast(Arr::get($rel, '_links.relationshipType.href'), '/');
+            return $relationship_type_id .'_'. $right_id;
+        }, $relationships);
+
+        foreach ($item->getEntities() as $entity) {
+            $local_key = $entity->getRelationshipTypeId() .'_'. $entity->getUuid();
+            if (! in_array($local_key, $remote_keys)) {
+                $this->createRelationship($entity->relationship_type_id, $item->id, $entity->id);
+            }
+        }
+
+    }
+
+    public function getItemRelationships(string $item_uuid) {
+        $response = $this->request("/api/core/items/{$item_uuid}/relationships");
+        return Arr::get($response, '_embedded.relationships', []);
     }
 
     /**
@@ -473,7 +536,7 @@ class DSpaceRest {
     /**
      * 
      */
-    public function getItemBundles($item_uuid) {
+    public function getItemBundles(string $item_uuid) {
         $response = $this->request("/api/core/items/{$item_uuid}/bundles");
         return Arr::get($response, '_embedded.bundles', []);  
     }
@@ -481,14 +544,22 @@ class DSpaceRest {
     /**
      * 
      */
-    public function getItemFiles($item_uuid, $bundle_name = 'ORIGINAL') {
+    public function createItemBundle(string $item_uuid, string $bundle_name = self::DEFAULT_BUNDLE_NAME) {
+        $data = ['name' => $bundle_name, 'metadata' => new \stdClass];
+        return $this->request("/api/core/items/{$item_uuid}/bundles", 'POST', $data);
+    }
+
+    /**
+     * 
+     */
+    public function getItemFiles($item_uuid, $bundle_name = self::DEFAULT_BUNDLE_NAME, bool $raw = false) {
         foreach ($this->getItemBundles($item_uuid) as $bundle) {
             if (empty($bundle_name) || $bundle['name'] == $bundle_name) {
                 $href = Arr::get($bundle, '_links.bitstreams.href');
                 $bitstreams = $this->request($href);
                 $files = [];
                 foreach (Arr::get($bitstreams, '_embedded.bitstreams', []) as $bitstream) {
-                    $files[$bitstream['id']] = $bitstream['name'];
+                    $files[$bitstream['id']] = $raw ? $bitstream : $bitstream['name'];
                 }
                 return $files;
             }
@@ -499,7 +570,7 @@ class DSpaceRest {
     /**
      * 
      */
-    protected function findOrCreateBundle(DSpaceItem $item, string $bundleName="ORIGINAL") {
+    protected function findOrCreateBundle(DSpaceItem $item, string $bundleName = self::DEFAULT_BUNDLE_NAME) {
         
         $this->ensureRemoteId($item);
 
@@ -507,8 +578,7 @@ class DSpaceRest {
 
             $bundles = $this->getItemBundles($item->id);
             if (empty($bundles)) {
-                $data = ['name' => $bundleName, 'metadata' => new \stdClass];
-                $bundle = $this->request($item->bundles_uri, 'POST', $data);
+                $bundle = $this->createItemBundle($item->id, $bundleName);
             } else {
                 $bundle = $bundles[0];
             }
@@ -523,7 +593,7 @@ class DSpaceRest {
     /**
      * 
      */
-    protected function uploadFile(DSpaceItem $item, File $file, $bundleName = "ORIGINAL") : array {
+    protected function uploadFile(DSpaceItem $item, File $file, $bundleName = self::DEFAULT_BUNDLE_NAME) : array {
         $response = false;
         $this->findOrCreateBundle($item, $bundleName);
         if ($cfile = $file->getCURLFile(true)) {
