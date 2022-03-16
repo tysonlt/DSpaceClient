@@ -143,7 +143,7 @@ class DSpaceRest {
     /**
      * 
      */
-    public function search(DSpaceSearch $search, $key_by = null) : array {
+    public function search(DSpaceSearch $search, $key_by = null) {
 
         $result = [];
 
