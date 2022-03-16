@@ -28,7 +28,7 @@ class DSpaceSearch {
     }
 
     public function hasPipe() : bool {
-        return ! is_callable($this->pipe);
+        return is_callable($this->pipe);
     }
 
     public function addFilter($key, $value, $operator='equals') : DSpaceSearch { 

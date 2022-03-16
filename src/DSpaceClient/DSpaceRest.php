@@ -9,6 +9,7 @@ use DSpaceClient\Exceptions\DSpaceRequestFailureException;
 use DSpaceClient\Exceptions\DSpaceAuthorisationException;
 use DSpaceClient\Exceptions\DSpaceInvalidRequestException;
 use Exception;
+use Generator;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 
@@ -52,6 +53,37 @@ class DSpaceRest {
      */
     public function resetTransport() {
         $this->reset_http_transport = true;
+    }
+
+    /**
+     * Like getAllItems(), but using a generator function.
+     *
+     * @return Generator<DSpaceItem>
+     */
+    public function listItems(int $pageSize = 100, $cache_callback = null) {
+
+        $page = -1;
+        $total_pages = 0;
+
+        while ($page < $total_pages) {
+            
+            $page++;
+            $url = "/api/core/items?page=$page&size=$pageSize";
+
+            if (is_callable($cache_callback)) {
+                $response = $cache_callback($url, [$this, 'request']);
+            } else {
+                $response = $this->request($url);
+            }
+            
+            $total_pages = Arr::get($response, 'page.totalPages');
+
+            foreach (Arr::get($response, '_embedded.items', []) as $item) {
+                yield DSpaceItem::fromRestResponse($item);
+            }
+
+        }
+
     }
 
     /**
@@ -124,7 +156,7 @@ class DSpaceRest {
         foreach ($hits as $hit) {
             $item = Arr::get($hit, '_embedded.indexableObject');
 
-            if (!$search->hasPipe()) {
+            if ($search->hasPipe()) {
                 call_user_func($search->pipe, $item);
             }
 
@@ -145,10 +177,15 @@ class DSpaceRest {
                 if (count($data) == 1) {
                     $data = Arr::first($data);
                 }
+
                 if ($key_by) {
                     $result[$item[$key_by]] = $data;
                 } else {
-                    $result[] = $data;
+                    if (count($search->pluck_fields) == 1) {
+                        $result = $data;
+                    } else {
+                        $result[] = $data;
+                    }
                 }
             }
         
@@ -407,16 +444,27 @@ class DSpaceRest {
     /**
      * 
      */
-    public function patchItemMeta($item_uuid, array $metadata) {
+    public function patchItemMeta($item_uuid, array $metadata, $operation = "add") {
         $payload = [];
         foreach ($metadata as $key => $values) {
             foreach (Arr::wrap($values) as $value) {
                 $payload[] = [
-                    "op" => "add",
+                    "op" => $operation,
                     "path" => "/metadata/$key",
                     "value" => ["value" => $value]
                 ];
             }
+        }
+        return $this->request('/api/core/items/'. $item_uuid, 'PATCH', $payload);
+    }
+
+    public function removeItemMeta($item_uuid, array $meta_keys) {
+        $payload = [];
+        foreach (Arr::wrap($meta_keys) as $meta_key) {
+            $payload[] = [
+                "op" => "remove",
+                "path" => "/metadata/$meta_key"
+            ];
         }
         return $this->request('/api/core/items/'. $item_uuid, 'PATCH', $payload);
     }

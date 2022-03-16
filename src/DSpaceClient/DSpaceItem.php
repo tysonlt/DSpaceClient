@@ -240,6 +240,23 @@ class DSpaceItem {
         return $found;
     }
 
+    public function deleteMeta(string $key, int $place) : bool {
+
+        if (! array_key_exists($key, $this->meta)) {
+            return false;
+        }
+
+        $original_count = count($this->meta[$key]);
+        $this->meta[$key] = array_filter($this->meta[$key], fn($m) => $m['place'] != $place);
+
+        if (empty($this->meta[$key])) {
+            unset($this->meta[$key]);
+        }
+
+        return count($this->meta[$key] ?? []) != $original_count;
+
+    }
+
     public function addMeta(string $key, $value, string $language="en", $authority=null, $confidence=-1) : DSpaceItem {
         
         if (empty($value)) {
