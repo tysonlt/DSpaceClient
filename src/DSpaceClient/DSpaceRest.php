@@ -618,7 +618,7 @@ class DSpaceRest {
     /**
      * 
      */
-    protected function findOrCreateBundle(DSpaceItem $item, string $bundleName = self::DEFAULT_BUNDLE_NAME) {
+    public function findOrCreateBundle(DSpaceItem $item, string $bundleName = self::DEFAULT_BUNDLE_NAME) {
         
         $this->ensureRemoteId($item);
 
@@ -641,7 +641,7 @@ class DSpaceRest {
     /**
      * 
      */
-    protected function uploadFile(DSpaceItem $item, File $file, $bundleName = self::DEFAULT_BUNDLE_NAME) : array {
+    public function uploadFile(DSpaceItem $item, File $file, $bundleName = self::DEFAULT_BUNDLE_NAME) : array {
         $response = false;
         $this->findOrCreateBundle($item, $bundleName);
         if ($cfile = $file->getCURLFile(true)) {
