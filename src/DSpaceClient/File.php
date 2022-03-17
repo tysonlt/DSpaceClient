@@ -8,6 +8,7 @@ use Exception;
 
 class File {
 
+    public $id;
     public $filename;
     public $mimetype;
     public $uri;
@@ -15,6 +16,15 @@ class File {
     public $password;
     public $content;
     public $temp_path;
+    public $policies = [];
+
+    public function addPolicy(Policy $policy) {
+        $this->policies[] = $policy;
+    }
+
+    public function getPolicies() : array {
+        return $this->policies;
+    }
 
     public function getCURLFile($download = true) {
         $cfile = null;

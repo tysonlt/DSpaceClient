@@ -618,7 +618,7 @@ class DSpaceRest {
     /**
      * 
      */
-    public function findOrCreateBundle(DSpaceItem $item, string $bundleName = self::DEFAULT_BUNDLE_NAME) {
+    protected function findOrCreateBundle(DSpaceItem $item, string $bundleName = self::DEFAULT_BUNDLE_NAME) {
         
         $this->ensureRemoteId($item);
 
@@ -646,6 +646,9 @@ class DSpaceRest {
         $this->findOrCreateBundle($item, $bundleName);
         if ($cfile = $file->getCURLFile(true)) {
             $response = $this->request($item->bitstreams_uri, 'POST', [], $cfile);
+            if (is_array($response) && array_key_exists('id', $response)) {
+                $file->id = $response['id'];    
+            }
             $file->deleteTempFile();
         }
         return $response;
