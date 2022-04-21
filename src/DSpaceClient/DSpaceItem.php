@@ -3,7 +3,6 @@
 namespace DSpaceClient;
 
 use DSpaceClient\Exceptions\DSpaceInvalidArgumentException;
-use Exception;
 use Illuminate\Support\Str;
 
 class DSpaceItem {

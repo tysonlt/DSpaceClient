@@ -101,8 +101,9 @@ class DSpaceSearch {
         return Arr::get($this->field_aliases, $field, $field);
     }
 
-    public function nextPage() {
+    public function nextPage() : DSpaceSearch {
         $this->page++;
+        return $this;
     }
 
     public function hasMorePages() {

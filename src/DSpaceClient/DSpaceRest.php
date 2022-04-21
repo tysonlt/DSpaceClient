@@ -36,6 +36,7 @@ class DSpaceRest {
     protected $bearer_token;
     protected $csrf_token;
     protected $reset_http_transport = false;
+    protected $found_json = true;
 
     /**
      * 
@@ -421,6 +422,13 @@ class DSpaceRest {
     /**
      * 
      */
+    public function getBitstreamContent($bitstream_uuid) {
+        return $this->request("/api/core/bitstreams/$bitstream_uuid/content");
+    }
+
+    /**
+     * 
+     */
     public function deleteRelationships($item_uuid) {
         $response = $this->request("/api/core/items/$item_uuid/relationships");
         foreach (Arr::get($response, '_embedded.relationships') as $relationship) {
@@ -628,6 +636,7 @@ class DSpaceRest {
             if (empty($bundles)) {
                 $bundle = $this->createItemBundle($item->id, $bundleName);
             } else {
+                //TODO: check it's the right bundle!!!
                 $bundle = $bundles[0];
             }
 
@@ -777,7 +786,11 @@ class DSpaceRest {
         }
 
         if ($response) {
-            return json_decode($response, true);
+            if ($this->found_json) {
+                return json_decode($response, true);
+            } else {
+                return $response;
+            }
         }
 
         return null;
@@ -789,7 +802,9 @@ class DSpaceRest {
      */
     protected function process_curl_header($ch, $header) {
 
-        if (false !== strpos($header, self::XSRF_HEADER)) {
+        if (false !== stripos($header, 'content-type')) {
+            $this->found_json = false !== stripos($header, 'json');
+        } else if (false !== strpos($header, self::XSRF_HEADER)) {
             $arr = explode(':', $header);
             $this->csrf_token = trim($arr[1]);
         } else if (self::AUTH_HEADER == substr($header, 0, strlen(self::AUTH_HEADER))) {
