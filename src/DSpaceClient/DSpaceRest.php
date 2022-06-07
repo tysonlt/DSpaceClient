@@ -327,11 +327,12 @@ class DSpaceRest {
     /**
      * 
      */
-    public function delete($uuid) : array {
+    public function delete($uuid) : bool {
         if ($uuid instanceof DSpaceItem) {
             $uuid = $uuid->id;
         }
-        return $this->request("/api/core/items/$uuid", 'DELETE');
+        $this->request("/api/core/items/$uuid", 'DELETE');
+        return true;
     }
 
     /**
