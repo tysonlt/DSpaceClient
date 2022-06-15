@@ -8,6 +8,8 @@ use DSpaceClient\Exceptions\DSpaceInvalidArgumentException;
 use DSpaceClient\Exceptions\DSpaceRequestFailureException;
 use DSpaceClient\Exceptions\DSpaceAuthorisationException;
 use DSpaceClient\Exceptions\DSpaceInvalidRequestException;
+use DSpaceClient\Store\DefaultTokenStore;
+use DSpaceClient\Store\TokenStore;
 use Exception;
 use Generator;
 use Illuminate\Support\Arr;
@@ -17,6 +19,7 @@ use Illuminate\Support\Str;
  * 
  */
 class DSpaceRest {
+cd
 
     public const STRATEGY_ADD          = 'add';
     public const STRATEGY_REPLACE      = 'replace';
@@ -33,10 +36,9 @@ class DSpaceRest {
     protected $api_root;
     protected $username;
     protected $password;
-    protected $bearer_token;
-    protected $csrf_token;
     protected $reset_http_transport = false;
     protected $found_json = true;
+    protected $token_store;
 
     /**
      * 
@@ -45,6 +47,11 @@ class DSpaceRest {
         $this->api_root = rtrim($api_root. '/');
         $this->username = $username;
         $this->password = $password;
+        $this->setTokenStore(new DefaultTokenStore());
+    }
+
+    public function setTokenStore(TokenStore $store) {
+        $this->token_store = $store;
     }
 
     /**
@@ -736,13 +743,13 @@ class DSpaceRest {
         $ch = curl_init($endpoint);
 
         $headers = [];
-        if (!empty($this->bearer_token)) {
-            $headers[] = sprintf('%s %s', self::AUTH_HEADER, $this->bearer_token);
+        if ($bearer_token = $this->token_store->fetchBearerToken()) {
+            $headers[] = sprintf('%s %s', self::AUTH_HEADER, $bearer_token);
         }
         
-        if (!empty($this->csrf_token)) {
-            $headers[] = "X-XSRF-TOKEN: ". $this->csrf_token;
-            curl_setopt($ch, CURLOPT_COOKIE, "DSPACE-XSRF-COOKIE=". $this->csrf_token);
+        if ($csrf_token = $this->token_store->fetchCsrfToken()) {
+            $headers[] = "X-XSRF-TOKEN: ". $csrf_token;
+            curl_setopt($ch, CURLOPT_COOKIE, "DSPACE-XSRF-COOKIE=". $csrf_token);
         }
 
         if ($file) {
@@ -807,9 +814,9 @@ class DSpaceRest {
             $this->found_json = false !== stripos($header, 'json');
         } else if (false !== strpos($header, self::XSRF_HEADER)) {
             $arr = explode(':', $header);
-            $this->csrf_token = trim($arr[1]);
+            $this->token_store->storeCsrfToken(trim($arr[1]));
         } else if (self::AUTH_HEADER == substr($header, 0, strlen(self::AUTH_HEADER))) {
-            $this->bearer_token = trim(substr($header, strlen(self::AUTH_HEADER)));
+            $this->token_store->storeBearerToken(trim(substr($header, strlen(self::AUTH_HEADER))));
         }
 
         return strlen($header);
