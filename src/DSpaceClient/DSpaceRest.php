@@ -682,7 +682,7 @@ class DSpaceRest {
     /**
      * 
      */
-    protected function login() {
+    public function login() {
         $auth_request = sprintf('/api/authn/login?user=%s&password=%s', rawurlencode($this->username), rawurlencode($this->password));
         return $this->_request($auth_request, 'POST', [
             'user' => $this->username,
