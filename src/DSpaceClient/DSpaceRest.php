@@ -19,7 +19,6 @@ use Illuminate\Support\Str;
  * 
  */
 class DSpaceRest {
-cd
 
     public const STRATEGY_ADD          = 'add';
     public const STRATEGY_REPLACE      = 'replace';
