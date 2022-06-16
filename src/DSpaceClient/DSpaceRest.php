@@ -63,6 +63,23 @@ class DSpaceRest {
     }
 
     /**
+     * 
+     */
+    public function login() {
+    
+        if (empty($this->token_store->fetchCsrfToken())) {
+            $this->isAuthenticated();
+        }
+
+        $auth_request = sprintf('/api/authn/login?user=%s&password=%s', rawurlencode($this->username), rawurlencode($this->password));
+        return $this->_request($auth_request, 'POST', [
+            'user' => $this->username,
+            'password' => $this->password
+        ]); //added body to prevent 411 - no content length (a curl bug?)
+
+    }
+
+    /**
      * Like getAllItems(), but using a generator function.
      *
      * @return Generator<DSpaceItem>
@@ -677,17 +694,6 @@ class DSpaceRest {
         if (empty($item->id)) {
             throw new DSpaceInvalidArgumentException("DSpaceItem has no ID set: has it been uploaded yet?");
         }
-    }
-
-    /**
-     * 
-     */
-    public function login() {
-        $auth_request = sprintf('/api/authn/login?user=%s&password=%s', rawurlencode($this->username), rawurlencode($this->password));
-        return $this->_request($auth_request, 'POST', [
-            'user' => $this->username,
-            'password' => $this->password
-        ]); //added body to prevent 411 - no content length (a curl bug?)
     }
 
     public function isAuthenticated($throwExceptions = false) : bool {
