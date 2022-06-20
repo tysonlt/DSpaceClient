@@ -747,7 +747,7 @@ class DSpaceRest {
         }
         $ch = curl_init($endpoint);
 
-        $headers = [];
+        $headers = ["X-DSPACE-REST-EXCEPTION-CAUSE: true"];
         if ($bearer_token = $this->token_store->fetchBearerToken()) {
             $headers[] = sprintf('%s %s', self::AUTH_HEADER, $bearer_token);
         }
