@@ -31,6 +31,9 @@ class DSpaceRest {
     protected const AUTH_HEADER = 'Authorization: Bearer';
 
     public $verbose = false;
+    public $timeout = 90;
+    public $connect_timeout = 30;
+    public $send_root_cause_header = true;
 
     protected $api_root;
     protected $username;
@@ -747,7 +750,12 @@ class DSpaceRest {
         }
         $ch = curl_init($endpoint);
 
-        $headers = ["X-DSPACE-REST-EXCEPTION-CAUSE: true"];
+        $headers = [];
+
+        if ($this->send_root_cause_header) {
+            $headers[] = "X-DSPACE-REST-EXCEPTION-CAUSE: true";
+        }
+
         if ($bearer_token = $this->token_store->fetchBearerToken()) {
             $headers[] = sprintf('%s %s', self::AUTH_HEADER, $bearer_token);
         }
@@ -783,12 +791,16 @@ class DSpaceRest {
 
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10); 
-        curl_setopt($ch, CURLOPT_TIMEOUT, 30); 
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $this->connect_timeout); 
+        curl_setopt($ch, CURLOPT_TIMEOUT, $this->timeout); 
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
         curl_setopt($ch, CURLOPT_HEADERFUNCTION, [$this, 'process_curl_header']);
 
         $response = curl_exec($ch); 
+        if (empty($response)) {
+            throw new DSpaceRequestFailureException("The server returned an empty response", $response);
+        }
+
         $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
        
         curl_close($ch);
