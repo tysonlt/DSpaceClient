@@ -7,6 +7,7 @@ use DSpaceClient\Exceptions\DSpaceHttpStatusException;
 use DSpaceClient\Exceptions\DSpaceInvalidArgumentException;
 use DSpaceClient\Exceptions\DSpaceRequestFailureException;
 use DSpaceClient\Exceptions\DSpaceAuthorisationException;
+use DSpaceClient\Exceptions\DSpaceInvalidMetadataException;
 use DSpaceClient\Exceptions\DSpaceInvalidRequestException;
 use DSpaceClient\Store\DefaultTokenStore;
 use DSpaceClient\Store\TokenStore;
@@ -364,8 +365,17 @@ class DSpaceRest {
     /**
      * 
      */
-    public function submit(DSpaceItem $item, bool $upload_files = true, $upload_relationships = true) {
+    public function submit(
+        DSpaceItem $item, 
+        bool $upload_files = true, 
+        bool $upload_relationships = true, 
+        bool $validate_metadata = true
+    ) {
         
+        if ($validate_metadata) {
+            $this->validateMetadata($item);
+        }
+
         $uri = '/api/core/items?owningCollection='. $item->getOwningCollection();
         $response = $this->request($uri, 'POST', $item->asArray());
 
@@ -391,10 +401,62 @@ class DSpaceRest {
     /**
      * 
      */
+    public function validateMetadata(DSpaceItem $item) {
+
+        $schema = $this->token_store->fetchUserData('metafields');
+        if (empty($schema)) {
+            $schema = $this->fetchMetadataFields(true);
+            $this->token_store->storeUserData('metafields', $schema);
+        }
+
+        foreach (array_keys($item->meta()) as $key) {
+            if (! in_array($key, $schema)) {
+                throw new DSpaceInvalidMetadataException($key);
+            }
+        }
+
+    }
+
+    public function fetchMetadataFields(bool $flat = true) {
+
+        $result = [];
+
+        $response = $this->request('/api/core/metadatafields');
+        foreach (Arr::get($response, 'metadatafields', []) as $field) {
+
+            $schema = Arr::get($field, '_embedded.schema.prefix');
+            $element = Arr::get($field, 'element');
+            $qualifier = Arr::get($field, 'qualifier', null);
+
+            if ($flat) {
+                $key = $schema .'.'. $element;
+                if (!empty($qualifier)) {
+                    $key .= '.'. $qualifier;
+                }
+                $result[] = $key;
+            } else {
+                $result[$schema][$element] = $qualifier;
+                $result[$schema][$element] = array_filter($result[$schema][$element]);
+            }
+
+        }
+
+        return $result;
+
+    }
+
+    /**
+     * 
+     */
     public function update(DSpaceItem $item, 
         string $file_strategy = self::STRATEGY_NO_CHANGE, 
-        string $relationship_strategy = self::STRATEGY_NO_CHANGE
+        string $relationship_strategy = self::STRATEGY_NO_CHANGE,
+        bool $validate_metadata = true
     ) {
+
+        if ($validate_metadata) {
+            $this->validateMetadata($item);
+        }
 
         $this->ensureRemoteId($item);
         $uri = '/api/core/items/'. $item->id;
