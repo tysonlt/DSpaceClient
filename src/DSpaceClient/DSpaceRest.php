@@ -797,10 +797,6 @@ class DSpaceRest {
         curl_setopt($ch, CURLOPT_HEADERFUNCTION, [$this, 'process_curl_header']);
 
         $response = curl_exec($ch); 
-        if (empty($response)) {
-            throw new DSpaceRequestFailureException("The server returned an empty response", $response);
-        }
-
         $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
        
         curl_close($ch);
