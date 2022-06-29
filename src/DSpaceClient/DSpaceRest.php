@@ -409,7 +409,7 @@ class DSpaceRest {
 
         $schema = $this->token_store->fetchUserData('metafields');
         if (empty($schema)) {
-            $this->refreshSchema();
+            $schema = $this->refreshSchema();
         }
 
         foreach (array_keys($item->meta()) as $key) {
@@ -420,11 +420,10 @@ class DSpaceRest {
 
     }
 
-    public function refreshSchema() {
-        $this->token_store->storeUserData(
-            'metafields', 
-            $this->fetchMetadataFields(true)
-        );
+    public function refreshSchema() : array {
+        $schema = $this->fetchMetadataFields(true);
+        $this->token_store->storeUserData('metafields', $schema);
+        return $schema;
     }
 
     public function fetchMetadataFields(bool $flat = true) {
