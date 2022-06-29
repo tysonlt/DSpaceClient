@@ -29,7 +29,9 @@ class DSpaceItem {
         $item->name = $response['name'] ?? null;
         $item->handle = $response['handle'] ?? null;
 
-        $item->setEntityType($response['entityType'] ?? null);
+        if ($entityType = ($response['entityType'] ?? null)) {
+            $item->setEntityType($entityType);
+        }
 
         foreach ($item->props as $k => $v) {
             $item->props[$k] = $response[$k] ?? $v;
