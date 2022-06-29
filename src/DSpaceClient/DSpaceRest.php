@@ -57,6 +57,10 @@ class DSpaceRest {
         $this->token_store = $store;
     }
 
+    public function getTokenStore() : TokenStore {
+        return $this->token_store;
+    }
+
     /**
      * Tell the underlying HTTP transport to clear any session data.
      * 
@@ -405,8 +409,7 @@ class DSpaceRest {
 
         $schema = $this->token_store->fetchUserData('metafields');
         if (empty($schema)) {
-            $schema = $this->fetchMetadataFields(true);
-            $this->token_store->storeUserData('metafields', $schema);
+            $this->refreshSchema();
         }
 
         foreach (array_keys($item->meta()) as $key) {
@@ -415,6 +418,13 @@ class DSpaceRest {
             }
         }
 
+    }
+
+    public function refreshSchema() {
+        $this->token_store->storeUserData(
+            'metafields', 
+            $this->fetchMetadataFields(true)
+        );
     }
 
     public function fetchMetadataFields(bool $flat = true) {

@@ -23,7 +23,7 @@ class DSpaceItem {
 
     public static function fromRestResponse(array $response) : DSpaceItem {
         
-        $item = new static();
+        $item = new self();
 
         $item->id = $response['id'] ?? null;
         $item->name = $response['name'] ?? null;
