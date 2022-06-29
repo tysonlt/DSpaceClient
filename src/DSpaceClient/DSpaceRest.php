@@ -403,9 +403,10 @@ class DSpaceRest {
     }
 
     /**
-     * 
+     * If throw is true, will throw DSpaceInvalidMetadataException($key).
+     * Otherwise, will return the missing key, or null.
      */
-    public function validateMetadata(DSpaceItem $item) {
+    public function validateMetadata(DSpaceItem $item, bool $throw = true) : ?string {
 
         $schema = $this->token_store->fetchUserData('metafields');
         if (empty($schema)) {
@@ -414,9 +415,15 @@ class DSpaceRest {
 
         foreach (array_keys($item->meta()) as $key) {
             if (! in_array($key, $schema)) {
-                throw new DSpaceInvalidMetadataException($key);
+                if ($throw) {
+                    throw new DSpaceInvalidMetadataException($key);
+                } else {
+                    return $key;
+                }
             }
         }
+
+        return null;
 
     }
 
@@ -430,8 +437,20 @@ class DSpaceRest {
 
         $result = [];
 
-        $response = $this->request('/api/core/metadatafields');
-        foreach (Arr::get($response, 'metadatafields', []) as $field) {
+        $page = 0;
+        $totalPages = 0;
+        $metafields = [];
+
+        do {
+
+            $response = $this->request('/api/core/metadatafields?size=100&page='. $page);
+            $metafields = array_merge($metafields, Arr::get($response, '_embedded.metadatafields', []));
+            $totalPages = Arr::get($response, 'page.totalPages');
+            $page++;
+
+        } while ($page < $totalPages);
+
+        foreach ($metafields as $field) {
 
             $schema = Arr::get($field, '_embedded.schema.prefix');
             $element = Arr::get($field, 'element');
