@@ -94,12 +94,11 @@ class DSpaceRest {
      */
     public function listItems(int $pageSize = 100, $cache_callback = null) {
 
-        $page = -1;
+        $page = 0;
         $total_pages = 0;
 
-        while ($page < $total_pages) {
+        do {
             
-            $page++;
             $url = "/api/core/items?page=$page&size=$pageSize";
 
             if (is_callable($cache_callback)) {
@@ -114,7 +113,9 @@ class DSpaceRest {
                 yield DSpaceItem::fromRestResponse($item);
             }
 
-        }
+            $page++;
+
+        } while ($page < $total_pages);
 
     }
 
@@ -629,6 +630,13 @@ class DSpaceRest {
     /**
      * 
      */
+    public function deleteRelationship(int $relationship_id) {
+        return $this->request("/api/core/relationships/". $relationship_id, 'DELETE');
+    }
+
+    /**
+     * 
+     */
     public function uploadItemFiles(DSpaceItem $item) : array {
         $result = [];
         $this->ensureRemoteId($item);
@@ -682,9 +690,24 @@ class DSpaceRest {
 
     }
 
-    public function getItemRelationships(string $item_uuid) {
-        $response = $this->request("/api/core/items/{$item_uuid}/relationships");
-        return Arr::get($response, '_embedded.relationships', []);
+    public function getItemRelationships(string $item_uuid, $relationship_type_id = null) {
+        $result = [];
+        $page = 0;
+        $totalPages = 0;
+        
+        do {
+            $response = $this->request("/api/core/items/{$item_uuid}/relationships?size=20&page={$page}");
+            foreach (Arr::get($response, '_embedded.relationships', []) as $rel) {
+                $rel_id = Str::afterLast(Arr::get($rel, '_links.relationshipType.href'), '/');
+                if (empty($relationship_type_id) || $rel_id == $relationship_type_id) {
+                    $result[] = $rel;
+                }
+            }
+            $totalPages = Arr::get($response, 'page.totalPages');
+            $page++;
+        } while ($page < $totalPages);
+
+        return $result;
     }
 
     /**
